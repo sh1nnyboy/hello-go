@@ -35,12 +35,11 @@ jobs:
       - name: Build with enhanced security
         id: build
         run: |
-          # Record build environment info
-          echo "GITHUB_SHA=$GITHUB_SHA" >> $GITHUB_ENV
-          echo "GITHUB_REF=$GITHUB_REF" >> $GITHUB_ENV
-          
           # Build the binary
           go build -o hello main.go
+          
+          # Generate SHA256 hash of the binary
+          echo "hashes=$(sha256sum hello | base64 -w0)" >> $GITHUB_OUTPUT
           
       - name: Generate SLSA provenance
         uses: slsa-framework/slsa-github-generator/container@v2.1.0
