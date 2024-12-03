@@ -42,11 +42,10 @@ jobs:
           echo "hashes=$(sha256sum hello | base64 -w0)" >> $GITHUB_OUTPUT
           
       - name: Generate SLSA provenance
-        uses: slsa-framework/slsa-github-generator@v1.2.3  # Correct action and version
+        uses: slsa-framework/slsa-github-generator@v2.0.0  # Updated to latest stable version
         with:
           base64-subjects: "${{ steps.build.outputs.hashes }}"
           provenance-name: "hello.intoto.jsonl"
-
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
