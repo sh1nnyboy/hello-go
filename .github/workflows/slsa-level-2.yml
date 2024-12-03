@@ -7,7 +7,7 @@ on:
 
 permissions:
   id-token: write
-  contents: write
+  contents: write  # Changed to write for artifact uploads
   actions: read
 
 jobs:
@@ -16,49 +16,39 @@ jobs:
     env:
       RUNNER_TEMP: /tmp/runner
       OPENSSL_PASSPHRASE: ${{ secrets.OPENSSL_PASSPHRASE }}
-      
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
-          
-      - name: Create Go file
-        run: |
-          cat > main.go <<EOF
-          package main
-          import "fmt"
-          func main() {
-              fmt.Println("hello world")
-          }
-          EOF
-          
+          go-version: '1.21'  # Updated to match GitLab version
+
       - name: Initialize Go module
         run: |
           go mod init hello-go
           go mod tidy
-          
+
       - name: Build with enhanced security
         id: build
         run: |
-          go build -o hello-go main.go
+          go build -o hello-go hello.go  # Changed to match GitLab naming
           echo "hashes=$(sha256sum hello-go | base64 -w0)" >> $GITHUB_OUTPUT
-          
+
       - name: Generate OpenSSL keys
         run: |
-          openssl genpkey -algorithm RSA -out private.pem -aes256 -pass pass:${{ secrets.OPENSSL_PASSPHRASE }}
+          echo "${{ secrets.OPENSSL_PRIVATE_KEY }}" > private.pem
           chmod 600 private.pem
-          openssl rsa -in private.pem -pubout -out public.pem -passin pass:${{ secrets.OPENSSL_PASSPHRASE }}
-          
+          openssl rsa -in private.pem -pubout -out public.pem
+
       - name: Sign artifact
         run: |
-          openssl dgst -sha256 -sign private.pem -passin pass:${{ secrets.OPENSSL_PASSPHRASE }} -out hello-go.sig hello-go
-          
+          openssl dgst -sha256 -sign private.pem -passin env:OPENSSL_PASSPHRASE -out hello-go.sig hello-go
+
       - name: Generate SLSA provenance
         uses: slsa-framework/slsa-github-generator@v2.0.0
         with:
