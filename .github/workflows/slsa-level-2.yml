@@ -7,7 +7,7 @@ on:
 
 permissions:
   id-token: write
-  contents: write  # Changed to write for artifact uploads
+  contents: write
   actions: read
 
 jobs:
@@ -16,44 +16,41 @@ jobs:
     env:
       RUNNER_TEMP: /tmp/runner
       OPENSSL_PASSPHRASE: ${{ secrets.OPENSSL_PASSPHRASE }}
-
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+          
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'  # Updated to match GitLab version
-
+          go-version: '1.21'
+          
       - name: Initialize Go module
         run: |
           go mod init hello-go
           go mod tidy
-
+          
       - name: Build with enhanced security
         id: build
         run: |
-          go build -o hello-go hello.go  # Changed to match GitLab naming
+          go build -o hello-go hello.go
           echo "hashes=$(sha256sum hello-go | base64 -w0)" >> $GITHUB_OUTPUT
-
-      - name: Generate OpenSSL keys
+          
+      - name: Generate OpenSSL keys and sign
         run: |
           echo "${{ secrets.OPENSSL_PRIVATE_KEY }}" > private.pem
           chmod 600 private.pem
           openssl rsa -in private.pem -pubout -out public.pem
-
-      - name: Sign artifact
-        run: |
           openssl dgst -sha256 -sign private.pem -passin env:OPENSSL_PASSPHRASE -out hello-go.sig hello-go
 
       - name: Generate SLSA provenance
-        uses: slsa-framework/slsa-github-generator@v2.0.0
+        uses: slsa-framework/github-actions-demo@v0.1
         with:
-          base64-subjects: "${{ steps.build.outputs.hashes }}"
-          provenance-name: "hello.intoto.jsonl"
+          artifact_path: hello-go
+          output_path: hello-go.intoto.jsonl
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -62,5 +59,5 @@ jobs:
           path: |
             hello-go
             hello-go.sig
-            hello.intoto.jsonl
             public.pem
+            hello-go.intoto.jsonl
