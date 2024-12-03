@@ -28,11 +28,6 @@ jobs:
         with:
           go-version: '1.21'
           
-      - name: Initialize Go module
-        run: |
-          go mod init hello-go
-          go mod tidy
-          
       - name: Create Go file
         run: |
           cat > main.go <<EOF
@@ -43,6 +38,11 @@ jobs:
           }
           EOF
           
+      - name: Initialize Go module
+        run: |
+          go mod init hello-go
+          go mod tidy
+          
       - name: Build with enhanced security
         id: build
         run: |
@@ -51,19 +51,19 @@ jobs:
           
       - name: Generate OpenSSL keys
         run: |
-          echo "${{ secrets.OPENSSL_PRIVATE_KEY }}" > private.pem
+          openssl genpkey -algorithm RSA -out private.pem -aes256 -pass pass:${{ secrets.OPENSSL_PASSPHRASE }}
           chmod 600 private.pem
-          openssl rsa -in private.pem -pubout -out public.pem
+          openssl rsa -in private.pem -pubout -out public.pem -passin pass:${{ secrets.OPENSSL_PASSPHRASE }}
           
       - name: Sign artifact
         run: |
-          openssl dgst -sha256 -sign private.pem -passin env:OPENSSL_PASSPHRASE -out hello-go.sig hello-go
+          openssl dgst -sha256 -sign private.pem -passin pass:${{ secrets.OPENSSL_PASSPHRASE }} -out hello-go.sig hello-go
           
       - name: Generate SLSA provenance
-        uses: slsa-framework/github-actions-demo@v0.1
+        uses: slsa-framework/slsa-github-generator@v2.0.0
         with:
-          artifact_path: hello-go
-          output_path: hello-go.intoto.jsonl
+          base64-subjects: "${{ steps.build.outputs.hashes }}"
+          provenance-name: "hello.intoto.jsonl"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -72,5 +72,5 @@ jobs:
           path: |
             hello-go
             hello-go.sig
-            hello-go.intoto.jsonl
+            hello.intoto.jsonl
             public.pem
